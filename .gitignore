@@ -1,0 +1,11 @@
+#Terraform files
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+terraform.tfsvars
+
+#Sensitive files
+*.pem
+*.pub
+*.key
