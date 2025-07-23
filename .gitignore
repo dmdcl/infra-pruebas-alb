@@ -3,7 +3,7 @@
 *.tfstate
 *.tfstate.backup
 *.tfvars
-terraform.tfsvars
+terraform.tfvars
 
 #Sensitive files
 *.pem
