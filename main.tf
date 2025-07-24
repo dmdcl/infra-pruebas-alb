@@ -76,7 +76,7 @@ resource "aws_security_group" "nginx_core_sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    security_groups = [aws_security_group.app_sg.id]
+    security_groups = ["app-sg"]
   }
 }
 
@@ -90,7 +90,7 @@ resource "aws_security_group" "app_sg" {
     from_port       = 80
     to_port         = 80
     protocol        = "tcp"
-    security_groups = [aws_security_group.nginx_core_sg.id]
+    security_groups = ["nginx-core-sg"]
   }
 
   egress {
