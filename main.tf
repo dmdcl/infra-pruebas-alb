@@ -280,7 +280,9 @@ resource "aws_instance" "app_servers" {
   user_data = <<-EOF
     #!/bin/bash
     yum update -y
+    amazon-linux-extras enable nginx1
     yum install -y nginx
+    systemctl enable nginx
     systemctl start nginx
     echo "<h1>${var.app_instances[count.index]}</h1>" > /usr/share/nginx/html/index.html
   EOF
