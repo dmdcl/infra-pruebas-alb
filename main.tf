@@ -8,7 +8,7 @@ provider "aws" {
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
-  tags = { Name = "Main-VPC" }
+  tags = { Name = "Main-VPC-ALB" }
 }
 
 # Subredes públicas para ALB
@@ -18,7 +18,7 @@ resource "aws_subnet" "public" {
   cidr_block              = var.public_subnets[count.index]
   availability_zone       = element(["${var.aws_region}a", "${var.aws_region}b"], count.index)
   map_public_ip_on_launch = true
-  tags = { Name = "Public-Subnet-${count.index + 1}" }
+  tags = { Name = "Public-Subnet-ALB-${count.index + 1}" }
 }
 
 # Subredes privadas para instancias
@@ -27,7 +27,81 @@ resource "aws_subnet" "private" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = var.private_subnets[count.index]
   availability_zone = element(["${var.aws_region}a", "${var.aws_region}b"], count.index)
-  tags = { Name = "Private-Subnet-${count.index + 1}" }
+  tags = { Name = "Private-Subnet-ALB-${count.index + 1}" }
+}
+
+
+# Internet Gateway
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.main.id
+  tags = { Name = "IGW-ALB" }
+}
+
+# NAT Gateway 
+resource "aws_eip" "nat" {
+  domain = "vpc"
+  tags = { Name = "EIP-NAT-ALB"}
+}
+
+resource "aws_nat_gateway" "nat" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public[0].id
+  tags = { Name = "NAT-Gateway-ALB" }
+}
+
+ # Tablas de Rutas
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+  tags = { Name = "Public-RouteTable" }
+}
+
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat.id
+  }
+  tags = { Name = "Private-RouteTable" }
+}
+
+resource "aws_route_table_association" "public" {
+  count          = length(var.public_subnets)
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "private" {
+  count          = length(var.private_subnets)
+  subnet_id      = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private.id
+}
+
+# Security Group para App Instances
+resource "aws_security_group" "app_sg" {
+  name        = "app-sg"
+  vpc_id      = aws_vpc.main.id
+  description = "Permitir acceso HTTP desde NGINX Core"
+  tags = { Name = "APP-SG"
+  component = "networking"
+  }
+
+  ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    cidr_blocks = var.private_subnets
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 # Security Group para ALB
@@ -35,6 +109,9 @@ resource "aws_security_group" "alb_sg" {
   name        = "alb-sg"
   vpc_id      = aws_vpc.main.id
   description = "Permitir HTTP a ALB"
+  tags = { Name = "ALB-SG"
+  component = "networking"
+  }
 
   ingress {
     from_port   = 80
@@ -56,6 +133,9 @@ resource "aws_security_group" "nginx_core_sg" {
   name        = "nginx-core-sg"
   vpc_id      = aws_vpc.main.id
   description = "Permitir acceso HTTP desde ALB y SSH desde mi IP"
+  tags = { Name = "NGINX-Core-SG"
+  component = "networking"
+  }
 
   ingress {
     from_port       = 80
@@ -68,7 +148,7 @@ resource "aws_security_group" "nginx_core_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
+    cidr_blocks = [var.my_ip] # IP asignada desde variables.tf
   }
 
   # Nueva regla: NGINX Core puede acceder a las Apps
@@ -76,27 +156,13 @@ resource "aws_security_group" "nginx_core_sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    security_groups = ["app-sg"]
-  }
-}
-
-# Security Group para App Instances
-resource "aws_security_group" "app_sg" {
-  name        = "app-sg"
-  vpc_id      = aws_vpc.main.id
-  description = "Permitir acceso HTTP desde NGINX Core"
-
-  ingress {
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
-    security_groups = ["nginx-core-sg"]
+    security_groups = [aws_security_group.app_sg.id]
   }
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
