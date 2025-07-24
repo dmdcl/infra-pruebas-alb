@@ -174,6 +174,9 @@ resource "aws_lb" "nginx_alb" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
   subnets            = aws_subnet.public[*].id
+    tags = {
+    Name = "nginx-alb"
+  }
 }
 
 # Target Group para NGINX Core
@@ -185,6 +188,10 @@ resource "aws_lb_target_group" "nginx_tg" {
 
   health_check {
     path = "/"
+  }
+
+    tags = {
+    Name = "nginx-tg"
   }
 }
 
@@ -232,19 +239,33 @@ resource "aws_launch_template" "nginx_core" {
     systemctl restart nginx
   EOF
   )
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "nginx-core"
+    }
+  }
+
 }
 
 resource "aws_autoscaling_group" "nginx_core_asg" {
   name_prefix          = "nginx-core-asg-"
   vpc_zone_identifier  = aws_subnet.private[*].id
-  min_size             = 2
+  min_size             = 1
   max_size             = 4
-  desired_capacity     = 2
+  desired_capacity     = 1
   target_group_arns    = [aws_lb_target_group.nginx_tg.arn]
 
   launch_template {
     id      = aws_launch_template.nginx_core.id
     version = "$Latest"
+  }
+
+    tag {
+    key                 = "Name"
+    value               = "nginx-core"
+    propagate_at_launch = true
   }
 }
 
