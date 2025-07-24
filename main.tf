@@ -1,7 +1,7 @@
 # Proveedor AWS
 provider "aws" {
   region = var.aws_region
-  profile = "diegopocgob"
+  profile = var.profile_name
 }
 
 # VPC y Networking
