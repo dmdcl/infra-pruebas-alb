@@ -34,7 +34,7 @@ resource "aws_subnet" "private" {
 resource "aws_security_group" "alb_sg" {
   name        = "alb-sg"
   vpc_id      = aws_vpc.main.id
-  description = "Allow HTTP to ALB"
+  description = "Permitir HTTP a ALB"
 
   ingress {
     from_port   = 80
@@ -55,7 +55,7 @@ resource "aws_security_group" "alb_sg" {
 resource "aws_security_group" "nginx_core_sg" {
   name        = "nginx-core-sg"
   vpc_id      = aws_vpc.main.id
-  description = "Allow HTTP from ALB and SSH from my IP"
+  description = "Permitir acceso HTTP desde ALB y SSH desde mi IP"
 
   ingress {
     from_port       = 80
@@ -84,7 +84,7 @@ resource "aws_security_group" "nginx_core_sg" {
 resource "aws_security_group" "app_sg" {
   name        = "app-sg"
   vpc_id      = aws_vpc.main.id
-  description = "Allow HTTP from NGINX Core"
+  description = "Permitir acceso HTTP desde NGINX Core"
 
   ingress {
     from_port       = 80
