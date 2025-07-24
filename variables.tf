@@ -1,44 +1,50 @@
 variable "aws_region" {
-    description = "Region de AWS donde se desplegaran los recursos"
-    type = string
-    default = "us-east-1"
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
 }
 
 variable "vpc_cidr" {
-    description = "CIDR block para la VPC"
-    type = string 
-    default = "10.0.0.0/16"
+  description = "VPC CIDR block"
+  type        = string
+  default     = "10.0.0.0/16"
 }
 
 variable "public_subnets" {
-    description = "CIDR blocks para subredes publicas"
-    type = list(string)
-    default = ["10.0.1.0/24", "10.0.4.0/24"] 
+  description = "Public subnets CIDR"
+  type        = list(string)
+  default     = ["10.0.1.0/24", "10.0.2.0/24"]
 }
 
 variable "private_subnets" {
-    description = "CIDR blocks para subredes privadas"
-    type = list(string) 
-    default = ["10.0.3.0/24", "10.0.4.0/24"]
+  description = "Private subnets CIDR"
+  type        = list(string)
+  default     = ["10.0.3.0/24", "10.0.4.0/24"]
 }
 
-variable "azs" {
-    description = "Zonas de disponibilidad"
-    type = list(string)
-    default = ["us-east-1a", "us-east-1b"]
+variable "app_instances" {
+  description = "App instance names"
+  type        = list(string)
+  default     = ["App1", "App2", "App3"]
 }
 
 variable "instance_type" {
-    description = "Tipo de instancia EC2"
-    type = string
-    default = "t3.micro"
+  description = "EC2 instance type"
+  type        = string
+  default     = "t3.micro"
 }
 
 variable "key_name" {
-    description = "Nombre del key pair SSH"
-    type = string
+  description = "SSH key pair name"
+  type        = string
+  sensitive   = true
 }
 
+variable "my_ip" {
+  description = "Your public IP for SSH"
+  type        = string
+  sensitive   = true
+}
 variable "my_ip" {
     description = "IP personal para acceso SSH (en formato CIDR)"
     type = string
