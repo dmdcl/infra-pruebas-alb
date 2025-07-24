@@ -45,14 +45,3 @@ variable "my_ip" {
   type        = string
   sensitive   = true
 }
-variable "my_ip" {
-    description = "IP personal para acceso SSH (en formato CIDR)"
-    type = string
-    default = "0.0.0.0/0"
-}
-
-variable "app_instances" {
-    description = "Nombres de las instancias de aplicacion"
-    type = list(string)
-    default = ["App1", "App2", "App3"]
-}
