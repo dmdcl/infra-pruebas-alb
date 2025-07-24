@@ -4,6 +4,12 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
+variable "profile_name" {
+  description = "Nombre del perfil de AWS"
+  type = string
+  default = "diegopocgob"
+}
+
 variable "vpc_cidr" {
   description = "CIDR de la VPC"
   type        = string
