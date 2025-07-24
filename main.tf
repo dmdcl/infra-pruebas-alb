@@ -93,7 +93,7 @@ resource "aws_security_group" "app_sg" {
     from_port       = 80
     to_port         = 80
     protocol        = "tcp"
-    cidr_blocks = var.private_subnets
+    security_groups = [aws_security_group.nginx_core_sg.id]
   }
 
   egress {
@@ -219,8 +219,6 @@ resource "aws_launch_template" "nginx_core" {
     #!/bin/bash
     yum update -y
     yum install -y nginx
-    systemctl start nginx
-    systemctl enable nginx
     echo "<h1>NGINX Core $(hostname)</h1>
     <p><a href='/app1'>App1</a> | <a href='/app2'>App2</a> | <a href='/app3'>App3</a></p>" > /usr/share/nginx/html/index.html
 
@@ -236,6 +234,8 @@ resource "aws_launch_template" "nginx_core" {
       proxy_pass http://${aws_instance.app_servers[2].private_ip};
     }
     CONF
+    
+    systemctl enable nginx
     systemctl restart nginx
   EOF
   )
