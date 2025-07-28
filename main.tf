@@ -235,30 +235,11 @@ resource "aws_launch_template" "nginx_core" {
   key_name      = var.key_name
   vpc_security_group_ids = [aws_security_group.nginx_core_sg.id]
 
-  user_data = base64encode(<<-EOF
-    #!/bin/bash
-    yum update -y
-    yum install -y nginx
-    echo "<h1>NGINX Core $(hostname)</h1>
-    <p><a href='/app1'>App1</a> | <a href='/app2'>App2</a> | <a href='/app3'>App3</a></p>" > /usr/share/nginx/html/index.html
-
-    # Configuración proxy para las apps
-    cat > /etc/nginx/conf.d/apps.conf <<'CONF'
-    location /app1 {
-      proxy_pass http://${aws_instance.app_servers[0].private_ip};
-    }
-    location /app2 {
-      proxy_pass http://${aws_instance.app_servers[1].private_ip};
-    }
-    location /app3 {
-      proxy_pass http://${aws_instance.app_servers[2].private_ip};
-    }
-    CONF
-    
-    systemctl enable nginx
-    systemctl restart nginx
-  EOF
-  )
+  user_data = base64encode(templatefile("${path.module}/nginx_userdata.tpl", {
+    app1_ip = aws_instance.app_servers[0].private_ip
+    app2_ip = aws_instance.app_servers[1].private_ip
+    app3_ip = aws_instance.app_servers[2].private_ip
+    }))
 
   tag_specifications {
     resource_type = "instance"
@@ -266,12 +247,13 @@ resource "aws_launch_template" "nginx_core" {
       Name = "nginx-core"
     }
   }
-
+  # El launch template no se creara hasta que las instancias tengan IP
+  depends_on = [aws_instance.app_servers]
 }
 
 resource "aws_autoscaling_group" "nginx_core_asg" {
   name_prefix          = "nginx-core-asg-"
-  vpc_zone_identifier  = aws_subnet.private[*].id
+  vpc_zone_identifier  = aws_subnet.public[*].id
   min_size             = 1
   max_size             = 4
   desired_capacity     = 1
@@ -294,17 +276,17 @@ resource "aws_instance" "app_servers" {
   count         = length(var.app_instances)
   ami           = data.aws_ami.amazon_linux.id
   instance_type = var.instance_type
-  subnet_id     = aws_subnet.private[count.index % length(var.private_subnets)].id
+  subnet_id     = aws_subnet.public[count.index % length(var.public_subnets)].id
   vpc_security_group_ids = [aws_security_group.app_sg.id]
 
   user_data = <<-EOF
     #!/bin/bash
-    yum update -y
-    amazon-linux-extras enable nginx1
-    yum install -y nginx
-    systemctl enable nginx
-    systemctl start nginx
-    echo "<h1>${var.app_instances[count.index]}</h1>" > /usr/share/nginx/html/index.html
+    sudo yum update -y
+    sudo amazon-linux-extras enable nginx1
+    sudo yum install -y nginx
+    sudo systemctl enable nginx
+    sudo systemctl start nginx
+    sudo echo "<h1>${var.app_instances[count.index]}</h1>" > /usr/share/nginx/html/index.html
   EOF
 
   tags = {
