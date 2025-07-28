@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "profile_name" {
   description = "Nombre del perfil de AWS"
   type = string
-  default = "true"
+  sensitive = "true"
 }
 
 variable "vpc_cidr" {
