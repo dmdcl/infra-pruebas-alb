@@ -1,17 +1,17 @@
-# Proveedor AWS
+## Proveedor AWS
 provider "aws" {
   region = var.aws_region
   profile = var.profile_name
 }
 
-# VPC y Networking
+## VPC y Networking
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
   tags = { Name = "Main-VPC-ALB" }
 }
 
-# Subredes públicas para ALB
+## Subredes públicas para ALB
 resource "aws_subnet" "public" {
   count                   = length(var.public_subnets)
   vpc_id                  = aws_vpc.main.id
@@ -21,7 +21,7 @@ resource "aws_subnet" "public" {
   tags = { Name = "Public-Subnet-ALB-${count.index + 1}" }
 }
 
-# Subredes privadas para instancias
+## Subredes privadas para instancias
 resource "aws_subnet" "private" {
   count             = length(var.private_subnets)
   vpc_id            = aws_vpc.main.id
@@ -31,13 +31,13 @@ resource "aws_subnet" "private" {
 }
 
 
-# Internet Gateway
+## Internet Gateway
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
   tags = { Name = "IGW-ALB" }
 }
 
-# NAT Gateway 
+## NAT Gateway 
 resource "aws_eip" "nat" {
   domain = "vpc"
   tags = { Name = "EIP-NAT-ALB"}
@@ -49,38 +49,46 @@ resource "aws_nat_gateway" "nat" {
   tags = { Name = "NAT-Gateway-ALB" }
 }
 
- # Tablas de Rutas
+## Tablas de Rutas
+# Tabla de rutas para subredes públicas
+# Permite a las instancias en subredes publicas comunicarse con internet a traves del IGW
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
   }
-  tags = { Name = "Public-RouteTable" }
+  tags = { Name = "Public-RouteTable-ALB" }
 }
 
+# Permite a las instancias en subredes privadas comunicarse con internet a traves del NAT Gateway
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
   route {
     cidr_block = "0.0.0.0/0"
     nat_gateway_id = aws_nat_gateway.nat.id
   }
-  tags = { Name = "Private-RouteTable" }
+  tags = { Name = "Private-RouteTable-ALB" }
 }
 
+# Asocia cada subred publica con la tabla de rutas publica
+# Permite a las instancias en subredes publicas salir a internet a traves del IGW
 resource "aws_route_table_association" "public" {
   count          = length(var.public_subnets)
   subnet_id      = aws_subnet.public[count.index].id
   route_table_id = aws_route_table.public.id
 }
 
+
+# Asocia cada subred privada con la tabla de rutas privadas
+# Permite que las instancias en subredes privadas tengan salida a internet solo mediante el NAT Gateway
 resource "aws_route_table_association" "private" {
   count          = length(var.private_subnets)
   subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private.id
 }
 
-# Security Group para App Instances
+## Security Group para App Instances
 resource "aws_security_group" "app_sg" {
   name        = "app-sg"
   vpc_id      = aws_vpc.main.id
@@ -91,7 +99,7 @@ resource "aws_security_group" "app_sg" {
 }
 
 
-# Security Group para ALB
+## Security Group para ALB
 resource "aws_security_group" "alb_sg" {
   name        = "alb-sg"
   vpc_id      = aws_vpc.main.id
@@ -101,7 +109,7 @@ resource "aws_security_group" "alb_sg" {
   }
 }
 
-# Security Group para NGINX Core (ASG)
+## Security Group para NGINX Core (ASG)
 resource "aws_security_group" "nginx_core_sg" {
   name        = "nginx-core-sg"
   vpc_id      = aws_vpc.main.id
@@ -111,7 +119,8 @@ resource "aws_security_group" "nginx_core_sg" {
   }
 }
 
-## ALB
+## Reglas para ALB
+# Permitir tráfico HTTP desde cualquier IP
 resource "aws_security_group_rule" "alb_ingress_http" {
   type              = "ingress"
   from_port         = 80
@@ -121,6 +130,7 @@ resource "aws_security_group_rule" "alb_ingress_http" {
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
+# Permite al ALB enviar trafico hacia cualquier destino
 resource "aws_security_group_rule" "alb_egress_all" {
   type              = "egress"
   from_port         = 0
@@ -131,6 +141,7 @@ resource "aws_security_group_rule" "alb_egress_all" {
 }
 
 ## NGINX Core
+# Permite trafico HTTP desde ALB hacia NGINX Core
 resource "aws_security_group_rule" "nginx_ingress_from_alb" {
   type                     = "ingress"
   from_port                = 80
@@ -140,6 +151,7 @@ resource "aws_security_group_rule" "nginx_ingress_from_alb" {
   source_security_group_id = aws_security_group.alb_sg.id
 }
 
+# Permite trafico SSH desde mi IP hacia NGINX Core
 resource "aws_security_group_rule" "nginx_ingress_ssh" {
   type              = "ingress"
   from_port         = 22
@@ -149,6 +161,7 @@ resource "aws_security_group_rule" "nginx_ingress_ssh" {
   cidr_blocks       = [var.my_ip]
 }
 
+# Permite que NGINX Core se comunique con las instancias App
 resource "aws_security_group_rule" "nginx_egress_to_app" {
   type                     = "egress"
   from_port                = 80
@@ -158,6 +171,7 @@ resource "aws_security_group_rule" "nginx_egress_to_app" {
   source_security_group_id = aws_security_group.app_sg.id
 }
 
+# Permite a NGINX Core hacer cualquier salida
 resource "aws_security_group_rule" "nginx_egress_all" {
   type              = "egress"
   from_port         = 0
@@ -167,7 +181,8 @@ resource "aws_security_group_rule" "nginx_egress_all" {
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
-## App Servers
+## Reglas para App Servers
+# Permite trafico HTTP desde NGINX Core hacia las instancias App
 resource "aws_security_group_rule" "app_ingress_from_nginx" {
   type                     = "ingress"
   from_port                = 80
@@ -177,6 +192,7 @@ resource "aws_security_group_rule" "app_ingress_from_nginx" {
   source_security_group_id = aws_security_group.nginx_core_sg.id
 }
 
+# Permite a las instancias APP hacer cualquier tipo de salida
 resource "aws_security_group_rule" "app_egress_all" {
   type              = "egress"
   from_port         = 0
@@ -187,7 +203,8 @@ resource "aws_security_group_rule" "app_egress_all" {
 }
 
 
-# ALB
+## ALB
+# Crea el ALB
 resource "aws_lb" "nginx_alb" {
   name               = "nginx-alb"
   internal           = false
@@ -215,7 +232,8 @@ resource "aws_lb_target_group" "nginx_tg" {
   }
 }
 
-# Listener ALB
+##Listener ALB
+# Listener que recibe tráfico HTTP en el puerto 80 y lo redirige al target group (NGINX Core).
 resource "aws_lb_listener" "front_end" {
   load_balancer_arn = aws_lb.nginx_alb.arn
   port              = "80"
@@ -227,7 +245,8 @@ resource "aws_lb_listener" "front_end" {
   }
 }
 
-# Auto Scaling Group para NGINX Core
+## NGINX Core
+# Launch template para NGINX Core
 resource "aws_launch_template" "nginx_core" {
   name_prefix   = "nginx-core-"
   image_id      = data.aws_ami.amazon_linux.id
@@ -235,6 +254,7 @@ resource "aws_launch_template" "nginx_core" {
   key_name      = var.key_name
   vpc_security_group_ids = [aws_security_group.nginx_core_sg.id]
 
+# Se instalara nginx y se configurara para redirigir tráfico a las instancias App
   user_data = base64encode(templatefile("${path.module}/nginx_userdata.tpl", {
     app1_ip = aws_instance.app_servers[0].private_ip
     app2_ip = aws_instance.app_servers[1].private_ip
@@ -251,9 +271,10 @@ resource "aws_launch_template" "nginx_core" {
   depends_on = [aws_instance.app_servers]
 }
 
+## AutoScalingGroup para NGINX Core
 resource "aws_autoscaling_group" "nginx_core_asg" {
   name_prefix          = "nginx-core-asg-"
-  vpc_zone_identifier  = aws_subnet.public[*].id
+  vpc_zone_identifier  = aws_subnet.private[*].id
   min_size             = 1
   max_size             = 4
   desired_capacity     = 1
@@ -271,14 +292,15 @@ resource "aws_autoscaling_group" "nginx_core_asg" {
   }
 }
 
-# Instancias App
+## Instancias App con NGINX
 resource "aws_instance" "app_servers" {
   count         = length(var.app_instances)
   ami           = data.aws_ami.amazon_linux.id
   instance_type = var.instance_type
-  subnet_id     = aws_subnet.public[count.index % length(var.public_subnets)].id
+  subnet_id     = aws_subnet.private[count.index % length(var.private_subnets)].id
   vpc_security_group_ids = [aws_security_group.app_sg.id]
 
+# Se instala nginx y se genera un index.html personalizado con el nombre de la instancia.
   user_data = <<-EOF
     #!/bin/bash
     sudo yum update -y
@@ -294,7 +316,7 @@ resource "aws_instance" "app_servers" {
   }
 }
 
-# Data source para AMI
+## Data source para AMI
 data "aws_ami" "amazon_linux" {
   most_recent = true
   owners      = ["amazon"]

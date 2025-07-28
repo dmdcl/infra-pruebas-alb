@@ -5,7 +5,7 @@ sudo yum install -y nginx
 sudo systemctl enable nginx
 sudo systemctl start nginx
 
-# Escribimos index.html
+# Escribimos index.html para cada instancia 
 sudo echo "<h1>NGINX Core $(hostname)</h1>
 <p><a href='/app1'>App1</a> | <a href='/app2'>App2</a> | <a href='/app3'>App3</a></p>" | sudo tee /usr/share/nginx/html/index.html
 
