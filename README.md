@@ -28,10 +28,10 @@ Este proyecto despliega una infraestructura en AWS usando Terraform para crear:
 - El ALB está configurado para escuchar en el puerto 80 y enrutar a NGINX Core.
 - NGINX Core escucha peticiones y redirige a las apps por ruta, usando IPs privadas.
 - Las apps sólo reciben tráfico HTTP desde NGINX Core (restricción en SG).
-- Las subredes privadas usan NAT Gateway para salir a internet (updates, etc).
-- SSH solo está permitido al NGINX Core desde la IP del usuario (variable `var.my_ip`).
-- Las imágenes usadas son Amazon Linux 2 con NGINX instalado y configurado mediante `user_data`.
-- El código Terraform usa `depends_on` para controlar el orden de creación y evitar errores.
+- Las subredes privadas usan una NAT Gateway para salir a internet (updates, etc).
+- Solo se puede acceder al NGINX Core por SSH mediante una IP especifica (variable `var.my_ip`).
+- Se utilizó Amazon Linux 2 con NGINX instalado y configurado mediante `user_data`.
+
 
 ---
 
@@ -50,7 +50,7 @@ Este proyecto despliega una infraestructura en AWS usando Terraform para crear:
 3. Ejecuta `terraform plan` para revisar los cambios.
 4. Ejecuta `terraform apply` para desplegar toda la infraestructura.
 5. Accede al DNS público del ALB para ver la página principal con enlaces a apps.
-6. El ALB balanceará y enrutarán tráfico a las instancias NGINX Core y estas a las apps.
+6. El ALB balanceará y enrutará tráfico a las instancias NGINX Core y estas a las apps.
 
 ---
 
